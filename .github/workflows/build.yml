@@ -1,1 +1,33 @@
+name: Build Tweak
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git make clang lld libssl-dev
+
+      - name: Clone Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+
+      - name: Build deb (rootless)
+        run: |
+          make clean
+          THEOS_PACKAGE_SCHEME=rootless make package
+
+      - name: Upload deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: NotifyIcon-deb
+          path: packages/*.deb
