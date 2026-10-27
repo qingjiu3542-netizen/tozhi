@@ -6,35 +6,22 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos‑latest
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install Theos
         run: |
-          sudo apt update
-          sudo apt install -y git make clang lld libssl-dev libusb-1.0-0-dev
-
-      - name: Setup Theos
-        run: |
-          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          git clone --recursive https://github.com/theos/theos.git ~/theos
           echo "THEOS=$HOME/theos" >> $GITHUB_ENV
-          echo "THEOS_DEVICE_IP=127.0.0.1" >> $GITHUB_ENV
 
-      - name: Download iOS SDK
-        run: |
-          cd $HOME/theos/sdks
-          wget https://github.com/theos/sdks/raw/master/iPhoneOS15.0.sdk.tar.xz
-          tar -Jxf iPhoneOS15.0.sdk.tar.xz
-
-      - name: Build tweak (rootless)
+      - name: Compile rootless tweak
         run: |
           make clean
           THEOS_PACKAGE_SCHEME=rootless make package
 
-      - name: Upload deb
-        uses: actions/upload-artifact@v4
+      - name: Upload deb artifact
+        uses: actions/upload‑artifact@v4
         with:
-          name: NotifylIcon-deb
+          name: NotifyIcon‑deb
           path: packages/*.deb
