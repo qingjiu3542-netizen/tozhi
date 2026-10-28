@@ -32,9 +32,17 @@ static NSData *NIIconData(NSString *bundleID) {
     return nil;
 }
 
+static id NISetting(NSString *key) {
+    return CFBridgingRelease(CFPreferencesCopyAppValue((__bridge CFStringRef)key, (__bridge CFStringRef)NISettingsDomain));
+}
+
 static BOOL NIIsEnabled(NSString *bundleID) {
-    id setting = CFBridgingRelease(CFPreferencesCopyAppValue((__bridge CFStringRef)@"EnabledBundleIDs", (__bridge CFStringRef)NISettingsDomain));
-    if (!setting) return YES; // No preference: show icons for all apps.
+    id masterSwitch = NISetting(@"ShowEnabled");
+    if ([masterSwitch respondsToSelector:@selector(boolValue)] && ![masterSwitch boolValue]) return NO;
+    id allApps = NISetting(@"AllAppsEnabled");
+    if (![allApps respondsToSelector:@selector(boolValue)] || [allApps boolValue]) return YES;
+    id setting = NISetting(@"EnabledBundleIDs");
+    if (!setting) return NO;
     NSArray<NSString *> *items = nil;
     if ([setting isKindOfClass:[NSArray class]]) {
         items = setting;
@@ -85,8 +93,11 @@ static void NIRenderIcon(NSString *bundleID) {
     NIIconView.image = image;
     NIIconView.hidden = NO;
     NIIconView.alpha = 1.0;
+    id durationValue = NISetting(@"DisplayDuration");
+    NSTimeInterval duration = [durationValue respondsToSelector:@selector(doubleValue)] ? [durationValue doubleValue] : 8.0;
+    duration = MIN(30.0, MAX(2.0, duration));
     NSUInteger generation = ++NIShowGeneration;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (generation != NIShowGeneration) return;
         [UIView animateWithDuration:0.25 animations:^{ NIIconView.alpha = 0.0; } completion:^(BOOL finished) {
             if (generation == NIShowGeneration) NIIconView.hidden = YES;

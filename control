@@ -6,4 +6,4 @@ Description: Show the sending app's icon briefly in the status bar when a notifi
 Maintainer: Minis User
 Author: Minis User
 Section: Tweaks
-Depends: mobilesubstrate, firmware (>= 15.0)
+Depends: mobilesubstrate, preferenceloader, firmware (>= 15.0)

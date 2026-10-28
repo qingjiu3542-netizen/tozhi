@@ -4,6 +4,8 @@ THEOS_PACKAGE_SCHEME = rootless
 
 include $(THEOS)/makefiles/common.mk
 
+SUBPROJECTS += Prefs
+
 TWEAK_NAME = NotifyIcon
 NotifyIcon_FILES = Tweak.xm
 NotifyIcon_CFLAGS = -fobjc-arc
@@ -12,3 +14,4 @@ NotifyIcon_FRAMEWORKS = UIKit Foundation QuartzCore
 INSTALL_TARGET_PROCESSES = SpringBoard
 
 include $(THEOS_MAKE_PATH)/tweak.mk
+include $(THEOS_MAKE_PATH)/aggregate.mk
