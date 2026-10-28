@@ -11,8 +11,7 @@ static NSUInteger NIShowGeneration;
 
 static NSString *NIStringValue(id object, SEL selector) {
     if (!object || ![object respondsToSelector:selector]) return nil;
-    id (*send)(id, SEL) = (void *)objc_msgSend;
-    id value = send(object, selector);
+    id value = ((id (*)(id, SEL))objc_msgSend)(object, selector);
     return [value isKindOfClass:[NSString class]] ? value : nil;
 }
 
@@ -20,13 +19,11 @@ static NSData *NIIconData(NSString *bundleID) {
     Class proxyClass = NSClassFromString(@"LSApplicationProxy");
     SEL lookup = NSSelectorFromString(@"applicationProxyForIdentifier:");
     if (!proxyClass || ![proxyClass respondsToSelector:lookup]) return nil;
-    id (*lookupSend)(id, SEL, id) = (void *)objc_msgSend;
-    id proxy = lookupSend(proxyClass, lookup, bundleID);
+    id proxy = ((id (*)(id, SEL, id))objc_msgSend)(proxyClass, lookup, bundleID);
     SEL iconSelector = NSSelectorFromString(@"iconDataForVariant:");
     if (!proxy || ![proxy respondsToSelector:iconSelector]) return nil;
-    NSData *(*iconSend)(id, SEL, NSInteger) = (void *)objc_msgSend;
     for (NSInteger variant = 0; variant < 4; variant++) {
-        NSData *result = iconSend(proxy, iconSelector, variant);
+        NSData *result = ((NSData *(*)(id, SEL, NSInteger))objc_msgSend)(proxy, iconSelector, variant);
         if ([result isKindOfClass:[NSData class]] && [result length]) return result;
     }
     return nil;
@@ -61,11 +58,16 @@ static BOOL NIIsEnabled(NSString *bundleID) {
 
 static UIWindow *NIStatusBarWindow(void) {
     UIApplication *application = [UIApplication sharedApplication];
-    for (UIWindow *window in application.windows) {
+    NSMutableArray<UIWindow *> *windows = [NSMutableArray array];
+    for (UIScene *scene in application.connectedScenes) {
+        if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+        [windows addObjectsFromArray:((UIWindowScene *)scene).windows];
+    }
+    for (UIWindow *window in windows) {
         NSString *name = NSStringFromClass([window class]);
         if ([name rangeOfString:@"StatusBar" options:NSCaseInsensitiveSearch].location != NSNotFound && !window.hidden) return window;
     }
-    for (UIWindow *window in application.windows) {
+    for (UIWindow *window in windows) {
         if (window.windowLevel >= UIWindowLevelStatusBar - 1 && !window.hidden) return window;
     }
     return nil;
