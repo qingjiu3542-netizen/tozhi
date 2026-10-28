@@ -118,9 +118,9 @@ static NSString * const NIAppListIdentifierKey = @"NIApplicationIdentifier";
     [self reloadSpecifiers];
 }
 
-- (NSMutableSet<NSString *> *)savedIDs {
+- (NSMutableSet<NSString *> *)savedIDsForKey:(NSString *)key {
     NSMutableSet *ids = [NSMutableSet set];
-    id value = CFBridgingRelease(CFPreferencesCopyAppValue(CFSTR("EnabledBundleIDs"), (__bridge CFStringRef)NIAppListDomain));
+    id value = CFBridgingRelease(CFPreferencesCopyAppValue((__bridge CFStringRef)key, (__bridge CFStringRef)NIAppListDomain));
     if ([value isKindOfClass:NSArray.class]) {
         for (id item in value) if ([item isKindOfClass:NSString.class]) [ids addObject:item];
     } else if ([value isKindOfClass:NSString.class]) {
@@ -133,6 +133,10 @@ static NSString * const NIAppListIdentifierKey = @"NIApplicationIdentifier";
     return ids;
 }
 
+- (NSMutableSet<NSString *> *)savedIDs {
+    return [self savedIDsForKey:[self allAppsEnabled] ? @"DisabledBundleIDs" : @"EnabledBundleIDs"];
+}
+
 - (BOOL)allAppsEnabled {
     id value = CFBridgingRelease(CFPreferencesCopyAppValue(CFSTR("AllAppsEnabled"), (__bridge CFStringRef)NIAppListDomain));
     return !value || [value boolValue];
@@ -141,9 +145,10 @@ static NSString * const NIAppListIdentifierKey = @"NIApplicationIdentifier";
 - (id)readApplicationEnabled:(PSSpecifier *)specifier {
     NSString *bundleID = [specifier propertyForKey:NIAppListIdentifierKey];
     if (![bundleID isKindOfClass:NSString.class]) return @NO;
-    NSMutableSet *ids = [self savedIDs];
-    if ([self allAppsEnabled]) return @(![ids containsObject:bundleID]);
-    return @([ids containsObject:bundleID]);
+    BOOL all = [self allAppsEnabled];
+    NSMutableSet<NSString *> *ids = [self savedIDs];
+    BOOL listed = [ids containsObject:bundleID];
+    return @(all ? !listed : listed);
 }
 
 - (void)setApplicationEnabled:(id)value specifier:(PSSpecifier *)specifier {
@@ -152,20 +157,13 @@ static NSString * const NIAppListIdentifierKey = @"NIApplicationIdentifier";
     BOOL enabled = [value respondsToSelector:@selector(boolValue)] && [value boolValue];
     BOOL all = [self allAppsEnabled];
     NSMutableSet<NSString *> *ids = [self savedIDs];
-    if (all) {
-        if (enabled) return;
-        for (NSDictionary *app in self.installedApps) {
-            NSString *installedID = app[@"id"];
-            if ([installedID isKindOfClass:NSString.class]) [ids addObject:installedID];
-        }
+    NSString *key = all ? @"DisabledBundleIDs" : @"EnabledBundleIDs";
+    if (enabled) {
         [ids removeObject:bundleID];
-        CFPreferencesSetAppValue(CFSTR("AllAppsEnabled"), kCFBooleanFalse, (__bridge CFStringRef)NIAppListDomain);
-    } else if (enabled) {
-        [ids addObject:bundleID];
     } else {
-        [ids removeObject:bundleID];
+        [ids addObject:bundleID];
     }
-    CFPreferencesSetAppValue(CFSTR("EnabledBundleIDs"), (__bridge CFArrayRef)ids.allObjects, (__bridge CFStringRef)NIAppListDomain);
+    CFPreferencesSetAppValue((__bridge CFStringRef)key, (__bridge CFArrayRef)ids.allObjects, (__bridge CFStringRef)NIAppListDomain);
     CFPreferencesAppSynchronize((__bridge CFStringRef)NIAppListDomain);
 }
 @end
