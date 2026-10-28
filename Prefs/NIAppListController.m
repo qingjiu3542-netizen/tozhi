@@ -92,6 +92,8 @@ static NSString * const NIAppListIdentifierKey = @"NIApplicationIdentifier";
         PSSpecifier *row = [PSSpecifier preferenceSpecifierNamed:name target:self set:@selector(setApplicationEnabled:specifier:) get:@selector(readApplicationEnabled:) detail:nil cell:PSSwitchCell edit:nil];
         row.identifier = bundleID;
         [row setProperty:bundleID forKey:NIAppListIdentifierKey];
+        [row setProperty:@"PSSubtitleSwitchTableCell" forKey:@"cellClass"];
+        [row setProperty:bundleID forKey:@"cellSubtitleText"];
         SEL iconSelector = @selector(_applicationIconImageForBundleIdentifier:format:scale:);
         if ([UIImage respondsToSelector:iconSelector]) {
             UIImage *icon = ((UIImage *(*)(id, SEL, id, int, CGFloat))objc_msgSend)(UIImage.class, iconSelector, bundleID, 0, UIScreen.mainScreen.scale);
@@ -140,7 +142,8 @@ static NSString * const NIAppListIdentifierKey = @"NIApplicationIdentifier";
     NSString *bundleID = [specifier propertyForKey:NIAppListIdentifierKey];
     if (![bundleID isKindOfClass:NSString.class]) return @NO;
     NSMutableSet *ids = [self savedIDs];
-    return @([self allAppsEnabled] ? ![ids containsObject:bundleID] : [ids containsObject:bundleID]);
+    if ([self allAppsEnabled]) return @YES;
+    return @([ids containsObject:bundleID]);
 }
 
 - (void)setApplicationEnabled:(id)value specifier:(PSSpecifier *)specifier {
@@ -153,8 +156,9 @@ static NSString * const NIAppListIdentifierKey = @"NIApplicationIdentifier";
         if (enabled) return;
         for (NSDictionary *app in self.installedApps) {
             NSString *installedID = app[@"id"];
-            if ([installedID isKindOfClass:NSString.class] && ![installedID isEqualToString:bundleID]) [ids addObject:installedID];
+            if ([installedID isKindOfClass:NSString.class]) [ids addObject:installedID];
         }
+        [ids removeObject:bundleID];
         CFPreferencesSetAppValue(CFSTR("AllAppsEnabled"), kCFBooleanFalse, (__bridge CFStringRef)NIAppListDomain);
     } else if (enabled) {
         [ids addObject:bundleID];
