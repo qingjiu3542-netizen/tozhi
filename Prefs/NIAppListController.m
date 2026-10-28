@@ -114,7 +114,7 @@ static NSString * const NIAppPreferenceDomain = @"com.minis.notifyicon";
     self.navigationItem.searchController = _searchController;
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
     self.definesPresentationContext = YES;
-    _tableView.tableFooterView = [UIView new];
+    self.tableView.tableFooterView = [UIView new];
     [self loadInstalledApps];
     [self reloadSavedSettings];
 }
