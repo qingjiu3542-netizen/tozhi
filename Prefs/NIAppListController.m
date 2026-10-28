@@ -142,7 +142,7 @@ static NSString * const NIAppListIdentifierKey = @"NIApplicationIdentifier";
     NSString *bundleID = [specifier propertyForKey:NIAppListIdentifierKey];
     if (![bundleID isKindOfClass:NSString.class]) return @NO;
     NSMutableSet *ids = [self savedIDs];
-    if ([self allAppsEnabled]) return @YES;
+    if ([self allAppsEnabled]) return @(![ids containsObject:bundleID]);
     return @([ids containsObject:bundleID]);
 }
 
