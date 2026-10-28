@@ -36,24 +36,23 @@ static id NISetting(NSString *key) {
 static BOOL NIIsEnabled(NSString *bundleID) {
     id masterSwitch = NISetting(@"ShowEnabled");
     if ([masterSwitch respondsToSelector:@selector(boolValue)] && ![masterSwitch boolValue]) return NO;
-    id allApps = NISetting(@"AllAppsEnabled");
-    if (![allApps respondsToSelector:@selector(boolValue)] || [allApps boolValue]) return YES;
+
+    id allAppsValue = NISetting(@"AllAppsEnabled");
+    BOOL allAppsEnabled = ![allAppsValue respondsToSelector:@selector(boolValue)] || [allAppsValue boolValue];
     id setting = NISetting(@"EnabledBundleIDs");
-    if (!setting) return NO;
-    NSArray<NSString *> *items = nil;
+    NSMutableSet<NSString *> *bundleIDs = [NSMutableSet set];
     if ([setting isKindOfClass:[NSArray class]]) {
-        items = setting;
+        for (id item in (NSArray *)setting) if ([item isKindOfClass:[NSString class]]) [bundleIDs addObject:item];
     } else if ([setting isKindOfClass:[NSString class]]) {
-        items = [setting componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@",;\n\t "]];
-    } else {
-        return NO;
+        NSArray *items = [(NSString *)setting componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@",;\\n\\t "]];
+        for (NSString *item in items) {
+            NSString *candidate = [item stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (candidate.length) [bundleIDs addObject:candidate];
+        }
     }
-    for (id item in items) {
-        if (![item isKindOfClass:[NSString class]]) continue;
-        NSString *candidate = [item stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        if ([candidate isEqualToString:@"*"] || [candidate isEqualToString:bundleID]) return YES;
-    }
-    return NO;
+
+    BOOL explicitlyListed = [bundleIDs containsObject:bundleID] || [bundleIDs containsObject:@"*"];
+    return allAppsEnabled ? !explicitlyListed : explicitlyListed;
 }
 
 static UIWindow *NIStatusBarWindow(void) {
