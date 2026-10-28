@@ -166,6 +166,18 @@ static NSString * const NIAppPreferenceDomain = @"com.minis.notifyicon";
     _userApps = [items filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NIInstalledApp *app, NSDictionary *bindings) { return !app.systemApp; }]];
     _filteredSystemApps = _systemApps;
     _filteredUserApps = _userApps;
+    [self updateEmptyState];
+}
+- (void)updateEmptyState {
+    if (!self.isViewLoaded) return;
+    NSString *query = [self.searchController.searchBar.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    UILabel *message = [UILabel new];
+    message.numberOfLines = 0;
+    message.textAlignment = NSTextAlignmentCenter;
+    message.textColor = UIColor.secondaryLabelColor;
+    message.font = [UIFont systemFontOfSize:15.0];
+    message.text = self.allApps.count == 0 ? @"暂时无法读取已安装应用列表" : (query.length ? @"没有匹配的应用" : nil);
+    self.tableView.backgroundView = message.text.length ? message : nil;
 }
 - (void)reloadSavedSettings {
     id all = CFBridgingRelease(CFPreferencesCopyAppValue(CFSTR("AllAppsEnabled"), (__bridge CFStringRef)NIAppPreferenceDomain));
