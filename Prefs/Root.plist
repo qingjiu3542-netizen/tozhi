@@ -1,45 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<array>
-    <dict>
-        <key>cell</key><string>PSGroupCell</string>
-        <key>label</key><string>状态栏通知图标</string>
-        <key>footerText</key><string>收到通知时短暂显示来源应用图标。此功能使用 iOS 私有接口，兼容性取决于系统版本。</string>
-    </dict>
-    <dict>
-        <key>cell</key><string>PSSwitchCell</string>
-        <key>label</key><string>启用插件</string>
-        <key>defaults</key><string>com.minis.notifyicon</string>
-        <key>key</key><string>ShowEnabled</string>
-        <key>default</key><true/>
-    </dict>
-    <dict>
-        <key>cell</key><string>PSSwitchCell</string>
-        <key>label</key><string>所有应用</string>
-        <key>defaults</key><string>com.minis.notifyicon</string>
-        <key>key</key><string>AllAppsEnabled</string>
-        <key>default</key><true/>
-    </dict>
-    <dict>
-        <key>cell</key><string>PSEditTextCell</string>
-        <key>label</key><string>指定应用 Bundle ID</string>
-        <key>footerText</key><string>关闭“所有应用”后生效。多个 Bundle ID 用逗号分隔，例如 com.apple.MobileSMS,com.example.chatapp</string>
-        <key>defaults</key><string>com.minis.notifyicon</string>
-        <key>key</key><string>EnabledBundleIDs</string>
-        <key>default</key><string></string>
-        <key>isSecure</key><false/>
-        <key>keyboardType</key><string>alphabet</string>
-    </dict>
-    <dict>
-        <key>cell</key><string>PSSliderCell</string>
-        <key>label</key><string>图标显示时长（秒）</string>
-        <key>defaults</key><string>com.minis.notifyicon</string>
-        <key>key</key><string>DisplayDuration</string>
-        <key>default</key><real>8</real>
-        <key>min</key><real>2</real>
-        <key>max</key><real>30</real>
-        <key>showValue</key><true/>
-    </dict>
-</array>
+<dict>
+    <key>title</key><string>状态栏通知图标</string>
+    <key>items</key>
+    <array>
+        <dict>
+            <key>cell</key><string>PSGroupCell</string>
+            <key>label</key><string>状态栏通知图标</string>
+            <key>footerText</key><string>收到通知时短暂显示来源应用图标。可以像其他插件一样按应用单独开关。</string>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>启用插件</string>
+            <key>defaults</key><string>com.minis.notifyicon</string>
+            <key>key</key><string>ShowEnabled</string>
+            <key>default</key><true/>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSwitchCell</string>
+            <key>label</key><string>所有应用</string>
+            <key>defaults</key><string>com.minis.notifyicon</string>
+            <key>key</key><string>AllAppsEnabled</string>
+            <key>default</key><true/>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSLinkCell</string>
+            <key>label</key><string>选择应用</string>
+            <key>footerText</key><string>查看已安装应用、图标和 Bundle ID，并逐个设置是否启用。</string>
+            <key>detail</key><string>NIAppListController</string>
+            <key>isController</key><true/>
+        </dict>
+        <dict>
+            <key>cell</key><string>PSSliderCell</string>
+            <key>label</key><string>图标显示时长（秒）</string>
+            <key>defaults</key><string>com.minis.notifyicon</string>
+            <key>key</key><string>DisplayDuration</string>
+            <key>default</key><real>8</real>
+            <key>min</key><real>2</real>
+            <key>max</key><real>30</real>
+            <key>showValue</key><true/>
+        </dict>
+    </array>
+</dict>
 </plist>
