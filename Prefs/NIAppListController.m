@@ -6,128 +6,40 @@
 #import <objc/message.h>
 #import <dlfcn.h>
 
-static NSString * const NIAppPreferenceDomain = @"com.minis.notifyicon";
+static NSString * const NIAppListDomain = @"com.minis.notifyicon";
+static NSString * const NIAppListIdentifierKey = @"NIApplicationIdentifier";
 
-@interface NIInstalledApp : NSObject
-@property (nonatomic, copy) NSString *name;
-@property (nonatomic, copy) NSString *bundleID;
-@property (nonatomic, copy) NSString *bundlePath;
-@property (nonatomic, strong) id proxy;
-@property (nonatomic, strong) UIImage *icon;
-@property (nonatomic) BOOL systemApp;
-@end
-@implementation NIInstalledApp
+@interface UIImage (NIApplicationIcon)
++ (UIImage *)_applicationIconImageForBundleIdentifier:(NSString *)bundleIdentifier format:(int)format scale:(CGFloat)scale;
 @end
 
-@interface NIAppSwitchCell : UITableViewCell
-@property (nonatomic, strong) UIImageView *appIconView;
-@property (nonatomic, strong) UILabel *nameLabel;
-@property (nonatomic, strong) UILabel *bundleLabel;
-@property (nonatomic, strong) UISwitch *appSwitch;
-@property (nonatomic, copy) void (^switchChanged)(BOOL enabled);
-- (void)configureWithApp:(NIInstalledApp *)app enabled:(BOOL)enabled changed:(void (^)(BOOL enabled))changed;
-@end
-
-@implementation NIAppSwitchCell
-- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
-    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
-    if (!self) return nil;
-    self.selectionStyle = UITableViewCellSelectionStyleNone;
-    _appIconView = [UIImageView new];
-    _appIconView.translatesAutoresizingMaskIntoConstraints = NO;
-    _appIconView.contentMode = UIViewContentModeScaleAspectFit;
-    _appIconView.clipsToBounds = YES;
-    _appIconView.layer.cornerRadius = 11.0;
-    _nameLabel = [UILabel new];
-    _nameLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    _nameLabel.font = [UIFont systemFontOfSize:19.0];
-    _nameLabel.textColor = UIColor.labelColor;
-    _nameLabel.lineBreakMode = NSLineBreakByTruncatingTail;
-    _bundleLabel = [UILabel new];
-    _bundleLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    _bundleLabel.font = [UIFont systemFontOfSize:14.0];
-    _bundleLabel.textColor = UIColor.secondaryLabelColor;
-    _bundleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
-    _appSwitch = [UISwitch new];
-    _appSwitch.translatesAutoresizingMaskIntoConstraints = NO;
-    [_appSwitch addTarget:self action:@selector(switchValueChanged:) forControlEvents:UIControlEventValueChanged];
-    UIStackView *labels = [[UIStackView alloc] initWithArrangedSubviews:@[_nameLabel, _bundleLabel]];
-    labels.translatesAutoresizingMaskIntoConstraints = NO;
-    labels.axis = UILayoutConstraintAxisVertical;
-    labels.alignment = UIStackViewAlignmentLeading;
-    labels.distribution = UIStackViewDistributionEqualCentering;
-    labels.spacing = 3.0;
-    [self.contentView addSubview:_appIconView];
-    [self.contentView addSubview:labels];
-    [self.contentView addSubview:_appSwitch];
-    [NSLayoutConstraint activateConstraints:@[
-        [_appIconView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:16.0],
-        [_appIconView.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-        [_appIconView.widthAnchor constraintEqualToConstant:50.0],
-        [_appIconView.heightAnchor constraintEqualToConstant:50.0],
-        [labels.leadingAnchor constraintEqualToAnchor:_appIconView.trailingAnchor constant:14.0],
-        [labels.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-        [labels.trailingAnchor constraintLessThanOrEqualToAnchor:_appSwitch.leadingAnchor constant:-12.0],
-        [_appSwitch.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-16.0],
-        [_appSwitch.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-        [self.contentView.heightAnchor constraintGreaterThanOrEqualToConstant:78.0]
-    ]];
-    return self;
-}
-- (void)configureWithApp:(NIInstalledApp *)app enabled:(BOOL)enabled changed:(void (^)(BOOL))changed {
-    self.nameLabel.text = app.name.length ? app.name : app.bundleID;
-    self.bundleLabel.text = app.bundleID;
-    self.appIconView.image = app.icon ?: [UIImage systemImageNamed:@"app.dashed"];
-    self.appSwitch.on = enabled;
-    self.switchChanged = changed;
-}
-- (void)switchValueChanged:(UISwitch *)sender {
-    if (self.switchChanged) self.switchChanged(sender.isOn);
-}
-@end
-
-@interface NIAppListController : PSListController <UITableViewDataSource, UITableViewDelegate, UISearchResultsUpdating>
-@property (nonatomic, strong) UISearchController *searchController;
-@property (nonatomic, copy) NSArray<NIInstalledApp *> *allApps;
-@property (nonatomic, copy) NSArray<NIInstalledApp *> *systemApps;
-@property (nonatomic, copy) NSArray<NIInstalledApp *> *userApps;
-@property (nonatomic, copy) NSArray<NIInstalledApp *> *filteredSystemApps;
-@property (nonatomic, copy) NSArray<NIInstalledApp *> *filteredUserApps;
-@property (nonatomic, strong) NSMutableSet<NSString *> *selectedBundleIDs;
-@property (nonatomic) BOOL allAppsEnabled;
-- (void)setApp:(NIInstalledApp *)app enabled:(BOOL)enabled;
+@interface NIAppListController : PSListController <UISearchResultsUpdating>
+@property (nonatomic, copy) NSArray<NSDictionary *> *installedApps;
+@property (nonatomic, copy) NSString *searchText;
+@property (nonatomic, copy) NSString *cachedSearchText;
 @end
 
 @implementation NIAppListController
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"选择应用";
-    self.view.backgroundColor = UIColor.systemGroupedBackgroundColor;
-    self.tableView.dataSource = self;
-    self.tableView.delegate = self;
-    self.tableView.rowHeight = 78.0;
-    [self.tableView registerClass:NIAppSwitchCell.class forCellReuseIdentifier:@"AppSwitch"];
-    _searchController = [[UISearchController alloc] initWithSearchResultsController:nil];
-    _searchController.searchResultsUpdater = self;
-    _searchController.obscuresBackgroundDuringPresentation = NO;
-    _searchController.searchBar.placeholder = @"搜索应用名称或 Bundle ID";
-    self.navigationItem.searchController = _searchController;
+    UISearchController *search = [[UISearchController alloc] initWithSearchResultsController:nil];
+    search.searchResultsUpdater = self;
+    search.obscuresBackgroundDuringPresentation = NO;
+    search.searchBar.placeholder = @"搜索应用名称或 Bundle ID";
+    self.navigationItem.searchController = search;
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
     self.definesPresentationContext = YES;
-    self.tableView.tableFooterView = [UIView new];
-    [self loadInstalledApps];
-    [self reloadSavedSettings];
 }
-- (void)viewWillAppear:(BOOL)animated {
-    [super viewWillAppear:animated];
-    [self reloadSavedSettings];
-    [self.tableView reloadData];
-}
-- (id)message:(id)object selector:(SEL)selector {
+
+- (id)object:(id)object perform:(SEL)selector {
     if (!object || ![object respondsToSelector:selector]) return nil;
     return ((id (*)(id, SEL))objc_msgSend)(object, selector);
 }
-- (void)loadInstalledApps {
+
+- (NSArray<NSDictionary *> *)installedApps {
+    if (_installedApps) return _installedApps;
     if (!NSClassFromString(@"LSApplicationWorkspace")) {
         dlopen("/System/Library/Frameworks/MobileCoreServices.framework/MobileCoreServices", RTLD_LAZY | RTLD_LOCAL);
         dlopen("/System/Library/Frameworks/CoreServices.framework/CoreServices", RTLD_LAZY | RTLD_LOCAL);
@@ -135,118 +47,121 @@ static NSString * const NIAppPreferenceDomain = @"com.minis.notifyicon";
     Class workspaceClass = NSClassFromString(@"LSApplicationWorkspace");
     SEL defaultSelector = NSSelectorFromString(@"defaultWorkspace");
     id workspace = [workspaceClass respondsToSelector:defaultSelector] ? ((id (*)(id, SEL))objc_msgSend)(workspaceClass, defaultSelector) : nil;
-    SEL appsSelector = NSSelectorFromString(@"allInstalledApplications");
-    NSArray *proxies = [workspace respondsToSelector:appsSelector] ? ((id (*)(id, SEL))objc_msgSend)(workspace, appsSelector) : nil;
-    NSMutableArray<NIInstalledApp *> *items = [NSMutableArray array];
-    SEL bundleSelector = NSSelectorFromString(@"bundleIdentifier");
+    SEL listSelector = NSSelectorFromString(@"allInstalledApplications");
+    NSArray *proxies = [workspace respondsToSelector:listSelector] ? ((id (*)(id, SEL))objc_msgSend)(workspace, listSelector) : nil;
+    NSMutableArray *apps = [NSMutableArray array];
+    SEL idSelector = NSSelectorFromString(@"bundleIdentifier");
     SEL nameSelector = NSSelectorFromString(@"localizedName");
-    SEL pathSelector = NSSelectorFromString(@"bundleURL");
+    SEL typeSelector = NSSelectorFromString(@"applicationType");
     SEL placeholderSelector = NSSelectorFromString(@"isPlaceholder");
     for (id proxy in proxies) {
-        id identifier = [self message:proxy selector:bundleSelector];
-        if (![identifier isKindOfClass:NSString.class] || ![(NSString *)identifier length]) continue;
+        id bundleID = [self object:proxy perform:idSelector];
+        if (![bundleID isKindOfClass:NSString.class] || ![(NSString *)bundleID length]) continue;
         if ([proxy respondsToSelector:placeholderSelector] && ((BOOL (*)(id, SEL))objc_msgSend)(proxy, placeholderSelector)) continue;
-        NIInstalledApp *app = [NIInstalledApp new];
-        app.bundleID = identifier;
-        id displayName = [self message:proxy selector:nameSelector];
-        app.name = [displayName isKindOfClass:NSString.class] && [displayName length] ? displayName : identifier;
-        app.proxy = proxy;
-        NSURL *bundleURL = [self message:proxy selector:pathSelector];
-        app.bundlePath = [bundleURL isKindOfClass:NSURL.class] ? bundleURL.path : @"";
-        app.systemApp = [app.bundlePath hasPrefix:@"/Applications/"] || [app.bundlePath hasPrefix:@"/System/Applications/"] || [app.bundlePath hasPrefix:@"/System/Library/CoreServices/"];
-        [items addObject:app];
+        id localizedName = [self object:proxy perform:nameSelector];
+        NSString *name = [localizedName isKindOfClass:NSString.class] && [(NSString *)localizedName length] ? localizedName : bundleID;
+        id appType = [self object:proxy perform:typeSelector];
+        BOOL systemApp = [appType isKindOfClass:NSString.class] && [(NSString *)appType isEqualToString:@"System"];
+        [apps addObject:@{@"id": bundleID, @"name": name, @"system": @(systemApp)}];
     }
-    [items sortUsingComparator:^NSComparisonResult(NIInstalledApp *a, NIInstalledApp *b) {
-        NSComparisonResult result = [a.name localizedCaseInsensitiveCompare:b.name];
-        return result == NSOrderedSame ? [a.bundleID compare:b.bundleID] : result;
+    [apps sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+        NSComparisonResult result = [a[@"name"] localizedCaseInsensitiveCompare:b[@"name"]];
+        return result == NSOrderedSame ? [a[@"id"] compare:b[@"id"]] : result;
     }];
-    _allApps = items;
-    NSPredicate *systemPredicate = [NSPredicate predicateWithBlock:^BOOL(NIInstalledApp *app, NSDictionary *bindings) { return app.systemApp; }];
-    _systemApps = [items filteredArrayUsingPredicate:systemPredicate];
-    _userApps = [items filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NIInstalledApp *app, NSDictionary *bindings) { return !app.systemApp; }]];
-    _filteredSystemApps = _systemApps;
-    _filteredUserApps = _userApps;
-    [self updateEmptyState];
+    _installedApps = [apps copy];
+    return _installedApps;
 }
-- (void)updateEmptyState {
-    if (!self.isViewLoaded) return;
-    NSString *query = [self.searchController.searchBar.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-    UILabel *message = [UILabel new];
-    message.numberOfLines = 0;
-    message.textAlignment = NSTextAlignmentCenter;
-    message.textColor = UIColor.secondaryLabelColor;
-    message.font = [UIFont systemFontOfSize:15.0];
-    message.text = self.allApps.count == 0 ? @"暂时无法读取已安装应用列表" : (query.length ? @"没有匹配的应用" : nil);
-    self.tableView.backgroundView = message.text.length ? message : nil;
+
+- (NSArray *)specifiers {
+    NSArray *apps = self.installedApps;
+    NSString *query = [self.searchText stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] ?: @"";
+    if (_specifiers && [self.cachedSearchText isEqualToString:query]) return _specifiers;
+
+    NSMutableArray *rows = [NSMutableArray array];
+    BOOL didSystem = NO, didUser = NO;
+    for (NSDictionary *app in apps) {
+        NSString *name = app[@"name"];
+        NSString *bundleID = app[@"id"];
+        if (query.length && ![name localizedCaseInsensitiveContainsString:query] && ![bundleID localizedCaseInsensitiveContainsString:query]) continue;
+        BOOL isSystem = [app[@"system"] boolValue];
+        BOOL *hasSection = isSystem ? &didSystem : &didUser;
+        if (!*hasSection) {
+            [rows addObject:[PSSpecifier groupSpecifierWithName:isSystem ? @"系统应用" : @"用户应用"]];
+            *hasSection = YES;
+        }
+        PSSpecifier *row = [PSSpecifier preferenceSpecifierNamed:name target:self set:@selector(setApplicationEnabled:specifier:) get:@selector(readApplicationEnabled:) detail:nil cell:PSSwitchCell edit:nil];
+        row.identifier = bundleID;
+        [row setProperty:bundleID forKey:NIAppListIdentifierKey];
+        SEL iconSelector = @selector(_applicationIconImageForBundleIdentifier:format:scale:);
+        if ([UIImage respondsToSelector:iconSelector]) {
+            UIImage *icon = ((UIImage *(*)(id, SEL, id, int, CGFloat))objc_msgSend)(UIImage.class, iconSelector, bundleID, 0, UIScreen.mainScreen.scale);
+            if ([icon isKindOfClass:UIImage.class]) [row setProperty:icon forKey:@"iconImage"];
+        }
+        [rows addObject:row];
+    }
+    if (apps.count == 0) {
+        [rows addObject:[PSSpecifier groupSpecifierWithName:@"无法读取已安装应用"]];
+    } else if (rows.count == 0) {
+        [rows addObject:[PSSpecifier groupSpecifierWithName:@"没有匹配的应用"]];
+    }
+    self.cachedSearchText = query;
+    _specifiers = rows;
+    return _specifiers;
 }
-- (void)reloadSavedSettings {
-    id all = CFBridgingRelease(CFPreferencesCopyAppValue(CFSTR("AllAppsEnabled"), (__bridge CFStringRef)NIAppPreferenceDomain));
-    _allAppsEnabled = all ? [all boolValue] : YES;
-    id value = CFBridgingRelease(CFPreferencesCopyAppValue(CFSTR("EnabledBundleIDs"), (__bridge CFStringRef)NIAppPreferenceDomain));
+
+- (void)updateSearchResultsForSearchController:(UISearchController *)searchController {
+    self.searchText = searchController.searchBar.text ?: @"";
+    self.cachedSearchText = nil;
+    _specifiers = nil;
+    [self reloadSpecifiers];
+}
+
+- (NSMutableSet<NSString *> *)savedIDs {
     NSMutableSet *ids = [NSMutableSet set];
+    id value = CFBridgingRelease(CFPreferencesCopyAppValue(CFSTR("EnabledBundleIDs"), (__bridge CFStringRef)NIAppListDomain));
     if ([value isKindOfClass:NSArray.class]) {
-        for (id entry in value) if ([entry isKindOfClass:NSString.class]) [ids addObject:entry];
+        for (id item in value) if ([item isKindOfClass:NSString.class]) [ids addObject:item];
     } else if ([value isKindOfClass:NSString.class]) {
         NSArray *parts = [(NSString *)value componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@",;\n\t "]];
-        for (NSString *entry in parts) { NSString *trimmed = [entry stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]; if (trimmed.length) [ids addObject:trimmed]; }
-    }
-    _selectedBundleIDs = ids;
-}
-- (UIImage *)iconForApp:(NIInstalledApp *)app {
-    if (app.icon) return app.icon;
-    SEL iconSelector = NSSelectorFromString(@"iconDataForVariant:");
-    if ([app.proxy respondsToSelector:iconSelector]) {
-        for (NSInteger variant = 0; variant < 4; variant++) {
-            NSData *data = ((NSData *(*)(id, SEL, NSInteger))objc_msgSend)(app.proxy, iconSelector, variant);
-            UIImage *image = data.length ? [UIImage imageWithData:data scale:UIScreen.mainScreen.scale] : nil;
-            if (image) { app.icon = image; return image; }
+        for (NSString *part in parts) {
+            NSString *trimmed = [part stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+            if (trimmed.length) [ids addObject:trimmed];
         }
     }
-    app.icon = [UIImage systemImageNamed:@"app.dashed"];
-    return app.icon;
+    return ids;
 }
-- (NSArray<NIInstalledApp *> *)appsForSection:(NSInteger)section {
-    return section == 0 ? self.filteredSystemApps : self.filteredUserApps;
+
+- (BOOL)allAppsEnabled {
+    id value = CFBridgingRelease(CFPreferencesCopyAppValue(CFSTR("AllAppsEnabled"), (__bridge CFStringRef)NIAppListDomain));
+    return !value || [value boolValue];
 }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 2; }
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return [self appsForSection:section].count; }
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return section == 0 ? @"系统应用" : @"用户应用";
+
+- (id)readApplicationEnabled:(PSSpecifier *)specifier {
+    NSString *bundleID = [specifier propertyForKey:NIAppListIdentifierKey];
+    if (![bundleID isKindOfClass:NSString.class]) return @NO;
+    NSMutableSet *ids = [self savedIDs];
+    return @([self allAppsEnabled] ? ![ids containsObject:bundleID] : [ids containsObject:bundleID]);
 }
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    NIInstalledApp *app = [self appsForSection:indexPath.section][indexPath.row];
-    NIAppSwitchCell *cell = [tableView dequeueReusableCellWithIdentifier:@"AppSwitch" forIndexPath:indexPath];
-    __weak typeof(self) weakSelf = self;
-    BOOL enabled = self.allAppsEnabled || [self.selectedBundleIDs containsObject:app.bundleID];
-    [cell configureWithApp:app enabled:enabled changed:^(BOOL on) { [weakSelf setApp:app enabled:on]; }];
-    cell.appIconView.image = [self iconForApp:app];
-    return cell;
-}
-- (void)setApp:(NIInstalledApp *)app enabled:(BOOL)enabled {
-    NSMutableSet<NSString *> *ids = [self.selectedBundleIDs mutableCopy] ?: [NSMutableSet set];
-    if (self.allAppsEnabled && !enabled) {
-        for (NIInstalledApp *installed in self.allApps) if (![installed.bundleID isEqualToString:app.bundleID]) [ids addObject:installed.bundleID];
-        _allAppsEnabled = NO;
-    } else if (!self.allAppsEnabled && enabled) {
-        [ids addObject:app.bundleID];
-    } else if (!self.allAppsEnabled && !enabled) {
-        [ids removeObject:app.bundleID];
+
+- (void)setApplicationEnabled:(id)value specifier:(PSSpecifier *)specifier {
+    NSString *bundleID = [specifier propertyForKey:NIAppListIdentifierKey];
+    if (![bundleID isKindOfClass:NSString.class]) return;
+    BOOL enabled = [value respondsToSelector:@selector(boolValue)] && [value boolValue];
+    BOOL all = [self allAppsEnabled];
+    NSMutableSet<NSString *> *ids = [self savedIDs];
+    if (all) {
+        if (enabled) return;
+        for (NSDictionary *app in self.installedApps) {
+            NSString *installedID = app[@"id"];
+            if ([installedID isKindOfClass:NSString.class] && ![installedID isEqualToString:bundleID]) [ids addObject:installedID];
+        }
+        CFPreferencesSetAppValue(CFSTR("AllAppsEnabled"), kCFBooleanFalse, (__bridge CFStringRef)NIAppListDomain);
+    } else if (enabled) {
+        [ids addObject:bundleID];
+    } else {
+        [ids removeObject:bundleID];
     }
-    _selectedBundleIDs = ids;
-    CFPreferencesSetAppValue(CFSTR("AllAppsEnabled"), (__bridge CFPropertyListRef)@(_allAppsEnabled), (__bridge CFStringRef)NIAppPreferenceDomain);
-    CFPreferencesSetAppValue(CFSTR("EnabledBundleIDs"), (__bridge CFPropertyListRef)[ids allObjects], (__bridge CFStringRef)NIAppPreferenceDomain);
-    CFPreferencesAppSynchronize((__bridge CFStringRef)NIAppPreferenceDomain);
-}
-- (void)updateSearchResultsForSearchController:(UISearchController *)searchController {
-    NSString *query = [searchController.searchBar.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-    if (!query.length) { _filteredSystemApps = _systemApps; _filteredUserApps = _userApps; }
-    else {
-        NSPredicate *match = [NSPredicate predicateWithBlock:^BOOL(NIInstalledApp *app, NSDictionary *bindings) {
-            return [app.name localizedCaseInsensitiveContainsString:query] || [app.bundleID localizedCaseInsensitiveContainsString:query];
-        }];
-        _filteredSystemApps = [_systemApps filteredArrayUsingPredicate:match];
-        _filteredUserApps = [_userApps filteredArrayUsingPredicate:match];
-    }
-    [self.tableView reloadData];
+    CFPreferencesSetAppValue(CFSTR("EnabledBundleIDs"), (__bridge CFArrayRef)ids.allObjects, (__bridge CFStringRef)NIAppListDomain);
+    CFPreferencesAppSynchronize((__bridge CFStringRef)NIAppListDomain);
 }
 @end
