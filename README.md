@@ -1,6 +1,6 @@
 # NotifyIcon
 
-**Rootless Theos source prototype** for briefly showing the sender app's icon in the SpringBoard status-bar area when a notification arrives.
+**Experimental Roothide Theos tweak** for briefly showing the sender app's icon in the SpringBoard status-bar area when a notification arrives.
 
 > **Compatibility warning:** This is experimental source, not a tested installable tweak. It hooks private SpringBoard/BulletinBoard APIs and draws an overlay on a private status-bar window. Apple does not provide stable public APIs for either task. The hook signature, app-icon lookup, overlay position, and package compatibility can vary by iOS version and jailbreak. It has not been built or tested on an iPhone. Do not install until built for, and tested on, your exact iOS/jailbreak combination. The overlay may overlap system indicators.
 
@@ -18,7 +18,7 @@ This is experimental source, not a tested installable tweak. It hooks private Sp
 
 ### GitHub Actions / cloud Mac build
 
-`\.github/workflows/build.yml` uses the Roothide-aware Theos Action and builds an arm64e package with `THEOS_PACKAGE_SCHEME=roothide`. Run **Build Roothide package** manually from the repository's Actions page. A successful build does not mean the private hook has been verified on-device.
+`.github/workflows/build.yml` uses the Roothide-aware Theos Action and builds an arm64e package with `THEOS_PACKAGE_SCHEME=roothide`. Run **Build Roothide package** manually from the repository's Actions page. A successful build does not mean the private hook has been verified on-device.
 
 Local Mac build:
 
