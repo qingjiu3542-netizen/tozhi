@@ -1,8 +1,10 @@
-name: Build rootless package
+name: Build Roothide package
 
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - "v*"
 
@@ -12,19 +14,77 @@ permissions:
 jobs:
   build:
     runs-on: macos-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: Randomblock1/theos-action@v1
+      - name: Set up Roothide Theos
+        uses: waruhachi/theos-action@v2.6.5
+        with:
+          theos-src: roothide/theos
+          theos-branch: master
+          sdks-src: theos/sdks
+          sdks-branch: master
 
-      - name: Build package
-        run: make package FINALPACKAGE=1
+      - name: Verify toolchain
+        run: |
+          set -euo pipefail
+          test -f "$THEOS/makefiles/common.mk"
+          test -d "$THEOS/sdks"
+          xcodebuild -version
+          make --version | head -n 1
 
-      - name: Upload Debian package
+      - name: Build Roothide package
+        env:
+          THEOS_PACKAGE_SCHEME: roothide
+        run: |
+          set -euo pipefail
+          rm -f packages/*.deb
+          make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
+          ls -lh packages/*.deb
+
+      - name: Verify Roothide package metadata and payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import glob, pathlib, subprocess, tarfile, tempfile
+          packages = glob.glob("packages/*.deb")
+          if len(packages) != 1:
+              raise SystemExit(f"Expected exactly one .deb, found {len(packages)}")
+          with tempfile.TemporaryDirectory() as temp:
+              subprocess.run(["ar", "x", str(pathlib.Path.cwd() / packages[0])], cwd=temp, check=True)
+              root = pathlib.Path(temp)
+              controls = list(root.glob("control.tar.*"))
+              payloads = list(root.glob("data.tar.*"))
+              if len(controls) != 1 or len(payloads) != 1:
+                  raise SystemExit("Missing or ambiguous Debian archive")
+              with tarfile.open(controls[0], mode="r:*") as archive:
+                  member = next((m for m in archive.getmembers() if m.name.lstrip("./") == "control"), None)
+                  if member is None:
+                      raise SystemExit("DEBIAN/control missing")
+                  control = archive.extractfile(member).read().decode()
+              print(control)
+              if "Architecture: iphoneos-arm64e" not in control:
+                  raise SystemExit("Package is not marked iphoneos-arm64e")
+              with tarfile.open(payloads[0], mode="r:*") as archive:
+                  names = [m.name.lstrip("./") for m in archive.getmembers()]
+              for required in (
+                  "Library/MobileSubstrate/DynamicLibraries/NotifyIcon.dylib",
+                  "Library/PreferenceBundles/NotifyIconPrefs.bundle/Info.plist",
+                  "Library/PreferenceLoader/Preferences/NotifyIconPrefs.plist",
+              ):
+                  if required not in names:
+                      raise SystemExit(f"Missing from payload: {required}")
+              if any(name.startswith("var/jb/") for name in names):
+                  raise SystemExit("Found fixed /var/jb paths; refusing non-Roothide package")
+              print("Roothide package verified.")
+          PY
+
+      - name: Upload Roothide Debian package
         uses: actions/upload-artifact@v4
         with:
-          name: NotifyIcon-rootless-deb
+          name: NotifyIcon-roothide-deb
           path: packages/*.deb
           if-no-files-found: error
 
