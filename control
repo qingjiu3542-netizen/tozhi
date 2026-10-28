@@ -1,7 +1,7 @@
 Package: com.minis.notifyicon
 Name: NotifyIcon
 Version: 0.1.4
-Architecture: iphoneos-arm64
+Architecture: iphoneos-arm64e
 Description: Show the sending app's icon briefly in the status bar when a notification arrives.
 Maintainer: Minis User
 Author: Minis User
