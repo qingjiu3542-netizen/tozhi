@@ -33,26 +33,30 @@ static id NISetting(NSString *key) {
     return CFBridgingRelease(CFPreferencesCopyAppValue((__bridge CFStringRef)key, (__bridge CFStringRef)NISettingsDomain));
 }
 
+static NSSet<NSString *> *NIStringSetFromPreference(id value) {
+    NSMutableSet<NSString *> *result = [NSMutableSet set];
+    if ([value isKindOfClass:[NSArray class]]) {
+        for (id item in (NSArray *)value) if ([item isKindOfClass:[NSString class]]) [result addObject:item];
+    } else if ([value isKindOfClass:[NSString class]]) {
+        NSArray *items = [(NSString *)value componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@",;\n\t "]];
+        for (NSString *item in items) {
+            NSString *candidate = [item stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (candidate.length) [result addObject:candidate];
+        }
+    }
+    return result;
+}
+
 static BOOL NIIsEnabled(NSString *bundleID) {
     id masterSwitch = NISetting(@"ShowEnabled");
     if ([masterSwitch respondsToSelector:@selector(boolValue)] && ![masterSwitch boolValue]) return NO;
 
     id allAppsValue = NISetting(@"AllAppsEnabled");
     BOOL allAppsEnabled = ![allAppsValue respondsToSelector:@selector(boolValue)] || [allAppsValue boolValue];
-    id setting = NISetting(@"EnabledBundleIDs");
-    NSMutableSet<NSString *> *bundleIDs = [NSMutableSet set];
-    if ([setting isKindOfClass:[NSArray class]]) {
-        for (id item in (NSArray *)setting) if ([item isKindOfClass:[NSString class]]) [bundleIDs addObject:item];
-    } else if ([setting isKindOfClass:[NSString class]]) {
-        NSArray *items = [(NSString *)setting componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@",;\\n\\t "]];
-        for (NSString *item in items) {
-            NSString *candidate = [item stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-            if (candidate.length) [bundleIDs addObject:candidate];
-        }
-    }
-
-    BOOL explicitlyListed = [bundleIDs containsObject:bundleID] || [bundleIDs containsObject:@"*"];
-    return allAppsEnabled ? !explicitlyListed : explicitlyListed;
+    NSString *key = allAppsEnabled ? @"DisabledBundleIDs" : @"EnabledBundleIDs";
+    NSSet<NSString *> *bundleIDs = NIStringSetFromPreference(NISetting(key));
+    BOOL listed = [bundleIDs containsObject:bundleID] || [bundleIDs containsObject:@"*"];
+    return allAppsEnabled ? !listed : listed;
 }
 
 static UIWindow *NIStatusBarWindow(void) {
