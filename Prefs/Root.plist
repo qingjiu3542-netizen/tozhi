@@ -8,7 +8,7 @@
         <dict>
             <key>cell</key><string>PSGroupCell</string>
             <key>label</key><string>状态栏通知图标</string>
-            <key>footerText</key><string>收到通知时短暂显示来源应用图标。可以像其他插件一样按应用单独开关。</string>
+            <key>footerText</key><string>收到通知时短暂显示来源应用图标。可打开所有应用，或从已安装应用中逐个选择。</string>
         </dict>
         <dict>
             <key>cell</key><string>PSSwitchCell</string>
@@ -27,7 +27,7 @@
         <dict>
             <key>cell</key><string>PSLinkCell</string>
             <key>label</key><string>选择应用</string>
-            <key>footerText</key><string>查看已安装应用、图标和 Bundle ID，并逐个设置是否启用。</string>
+            <key>footerText</key><string>列出已安装应用及图标，并逐项开关。关闭“所有应用”后，所选应用生效。</string>
             <key>detail</key><string>NIAppListController</string>
             <key>isController</key><true/>
         </dict>
